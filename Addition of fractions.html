@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>分數加法教學：完美約分格線版</title>
+    <style>
+        :root { --cell-blue: rgba(135, 206, 250, 0.8); --cell-orange: rgba(255, 165, 0, 0.8); --text-dark: #2c3e50; }
+        body { font-family: "Microsoft JhengHei", sans-serif; display: flex; flex-direction: column; align-items: center; background: #f8f9fa; padding: 20px; color: var(--text-dark); }
+        
+        .fraction { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; margin: 0 8px; font-size: 26px; }
+        .fraction .numerator { border-bottom: 3px solid #333; padding: 0 5px; }
+        .fraction .denominator { padding: 0 5px; }
+        
+        .equation-area { display: flex; align-items: center; font-weight: bold; margin-bottom: 25px; min-height: 90px; background: white; padding: 15px 30px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        
+        .stage { display: flex; gap: 20px; align-items: flex-start; justify-content: center; flex-wrap: nowrap; }
+        .box-container { display: flex; flex-direction: column; align-items: center; background: #fff; padding: 15px; border-radius: 10px; border: 1px solid #eee; }
+        .box { width: 180px; height: 180px; border: 4px solid #333; position: relative; background: white; margin-bottom: 12px; overflow: hidden; }
+        .result-wrapper { display: flex; gap: 10px; flex-direction: row; align-items: flex-start; }
+
+        .grid-line { position: absolute; background: #444; z-index: 5; }
+        .grid-line-v { width: 2px; height: 100%; top: 0; }
+        .grid-line-h { height: 2px; width: 100%; left: 0; }
+
+        .cell { position: absolute; box-sizing: border-box; z-index: 4; border: 0.5px solid rgba(255,255,255,0.3); }
+
+        .controls { margin-top: 25px; display: flex; gap: 12px; }
+        button { padding: 12px 24px; font-size: 18px; cursor: pointer; border: none; border-radius: 8px; transition: 0.2s; font-weight: bold; }
+        .btn-nav { background: #3498db; color: white; }
+        .btn-new { background: #2ecc71; color: white; }
+        
+        #explanation { margin-top: 20px; font-size: 20px; color: #d35400; font-weight: bold; max-width: 900px; text-align: center; min-height: 4.5em; line-height: 1.6; padding: 15px 25px; border-left: 6px solid #e67e22; background: #fff3e0; border-radius: 4px; }
+        .highlight { color: #c0392b; text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <div class="equation-area" id="equationDisplay"></div>
+
+    <div class="stage">
+        <div class="box-container"><div id="boxA" class="box"></div><div id="labelA"></div></div>
+        <div style="font-size: 40px; margin-top: 85px; font-weight: bold;">+</div>
+        <div class="box-container"><div id="boxB" class="box"></div><div id="labelB"></div></div>
+        <div style="font-size: 40px; margin-top: 85px; font-weight: bold;">=</div>
+        <div class="box-container">
+            <div class="result-wrapper" id="resultWrapper">
+                <div id="boxR1" class="box"></div>
+            </div>
+            <div style="margin-top:10px; font-weight:bold;">結果區域</div>
+        </div>
+    </div>
+
+    <div id="explanation">點擊「出新題目」開始</div>
+
+    <div class="controls">
+        <button class="btn-new" onclick="initGame()">出新題目</button>
+        <button class="btn-nav" id="prevBtn" onclick="changeStep(-1)">上一步</button>
+        <button class="btn-nav" id="nextBtn" onclick="changeStep(1)">下一步</button>
+    </div>
+
+<script>
+    let d1, n1, d2, n2, commonD, resN, gcdVal;
+    let currentStep = 0;
+
+    function getGCD(a, b) { return b === 0 ? a : getGCD(b, a % b); }
+    function getFractionHTML(n, d) { return `<div class="fraction"><div class="numerator">${n}</div><div class="denominator">${d}</div></div>`; }
+
+    function initGame() {
+        d1 = Math.floor(Math.random() * 3) + 2; 
+        d2 = Math.floor(Math.random() * 3) + 2;
+        if(d1 === d2) d2 = (d1 % 5) + 1;
+        n1 = Math.floor(Math.random() * (d1 - 1)) + 1;
+        n2 = Math.floor(Math.random() * (d2 - 1)) + 1;
+        if(Math.random() > 0.4) { n1 = d1 - 1; n2 = d2 - 1; }
+
+        commonD = d1 * d2;
+        resN = n1 * d2 + n2 * d1;
+        gcdVal = getGCD(resN, commonD);
+        currentStep = 0;
+        updateUI();
+    }
+
+    function changeStep(delta) {
+        currentStep = Math.max(0, Math.min(5, currentStep + delta));
+        updateUI();
+    }
+
+    function addGridLines(box, count, dir) {
+        for(let i=1; i<count; i++) {
+            let line = document.createElement('div');
+            line.className = `grid-line grid-line-${dir}`;
+            line.style[dir === 'v' ? 'left' : 'top'] = (i * 100 / count) + '%';
+            box.appendChild(line);
+        }
+    }
+
+    function renderCells(box, rows, cols, activeCells, color, fillType) {
+        box.innerHTML = '';
+        for(let i=0; i<activeCells; i++) {
+            let c = document.createElement('div');
+            c.className = 'cell';
+            c.style.width = (100/cols)+'%'; c.style.height = (100/rows)+'%';
+            if(fillType === 'v') { 
+                c.style.left = (Math.floor(i/rows) * 100/cols)+'%';
+                c.style.top = ( (i % rows) * 100/rows)+'%';
+            } else {
+                c.style.left = ( (i % cols) * 100/cols)+'%';
+                c.style.top = ( (rows - 1 - Math.floor(i/cols)) * 100/rows)+'%';
+            }
+            c.style.background = color;
+            box.appendChild(c);
+        }
+    }
+
+    function updateUI() {
+        const boxA = document.getElementById('boxA');
+        const boxB = document.getElementById('boxB');
+        const resWrapper = document.getElementById('resultWrapper');
+        const exp = document.getElementById('explanation');
+        const eq = document.getElementById('equationDisplay');
+
+        document.getElementById('prevBtn').disabled = (currentStep === 0);
+        document.getElementById('nextBtn').disabled = (currentStep === 5);
+
+        resWrapper.innerHTML = '<div id="boxR1" class="box"></div>';
+        if (resN > commonD) resWrapper.innerHTML += '<div id="boxR2" class="box"></div>';
+        const boxR1 = document.getElementById('boxR1');
+        const boxR2 = document.getElementById('boxR2');
+
+        eq.innerHTML = getFractionHTML(n1, d1) + ' + ' + getFractionHTML(n2, d2) + ' = ?';
+
+        switch(currentStep) {
+            case 0:
+                exp.innerHTML = `1. 觀察原始分數。左邊是 ${getFractionHTML(n1, d1)} (直切)，右邊是 ${getFractionHTML(n2, d2)} (橫切)。<br>分母不同，我們沒辦法直接相加。`;
+                renderCells(boxA, 1, d1, n1, 'var(--cell-blue)', 'v');
+                renderCells(boxB, d2, 1, n2, 'var(--cell-orange)', 'h');
+                addGridLines(boxA, d1, 'v'); addGridLines(boxB, d2, 'h');
+                document.getElementById('labelA').innerHTML = getFractionHTML(n1, d1);
+                document.getElementById('labelB').innerHTML = getFractionHTML(n2, d2);
+                break;
+
+            case 1:
+                exp.innerHTML = `<span class="highlight">通分大祕訣：分母互乘！</span> 讓格子大小變一致。<br>左邊補上右邊的 ${d2} 橫切，右邊補上左邊的 ${d1} 直切。大家現在都切成了 <span class="highlight">${commonD}</span> 格！`;
+                renderCells(boxA, d2, d1, n1*d2, 'var(--cell-blue)', 'v');
+                renderCells(boxB, d2, d1, n2*d1, 'var(--cell-orange)', 'h');
+                addGridLines(boxA, d1, 'v'); addGridLines(boxA, d2, 'h');
+                addGridLines(boxB, d1, 'v'); addGridLines(boxB, d2, 'h');
+                document.getElementById('labelA').innerHTML = `${getFractionHTML(n1, d1)} = ${getFractionHTML(n1*d2, commonD)}`;
+                document.getElementById('labelB').innerHTML = `${getFractionHTML(n2, d2)} = ${getFractionHTML(n2*d1, commonD)}`;
+                break;
+
+            case 2:
+                exp.innerHTML = `3. 準備結果區。我們也把結果區準備好，同樣切成 <span class="highlight">${commonD}</span> 個小格。`;
+                [boxR1, boxR2].filter(b=>b).forEach(b => { addGridLines(b, d1, 'v'); addGridLines(b, d2, 'h'); });
+                break;
+
+            case 3:
+                exp.innerHTML = `4. 搬移色塊。先把左邊的 <span class="highlight">${n1*d2}</span> 塊藍色搬過來，再補上右邊的 <span class="highlight">${n2*d1}</span> 塊橘色。`;
+                [boxR1, boxR2].filter(b=>b).forEach(b => { 
+                    renderResultContent(b, b === boxR1 ? 0 : 1); 
+                    addGridLines(b, d1, 'v'); addGridLines(b, d2, 'h'); 
+                });
+                break;
+
+            case 4:
+                exp.innerHTML = `5. 得到結果。總共塗色了 ${resN} 小格，所以答案是 <span class="highlight">${getFractionHTML(resN, commonD)}</span>。<br>觀察一下，這些細小的格線可以合併簡化嗎？`;
+                [boxR1, boxR2].filter(b=>b).forEach(b => { 
+                    renderResultContent(b, b === boxR1 ? 0 : 1); 
+                    addGridLines(b, d1, 'v'); addGridLines(b, d2, 'h'); 
+                });
+                eq.innerHTML = getFractionHTML(n1, d1) + ' + ' + getFractionHTML(n2, d2) + ' = ' + getFractionHTML(resN, commonD);
+                break;
+
+            case 5:
+                const fD = commonD / gcdVal; const fN = resN / gcdVal;
+                [boxR1, boxR2].filter(b=>b).forEach(b => {
+                    renderResultContent(b, b === boxR1 ? 0 : 1);
+                    // --- 修正後的智慧約分格線邏輯 ---
+                    if (fD === d1) {
+                        addGridLines(b, d1, 'v'); // 約分後分母等於原始直切
+                    } else if (fD === d2) {
+                        addGridLines(b, d2, 'h'); // 約分後分母等於原始橫切
+                    } else if (fD % 2 === 0 && fD > 2) {
+                        // 如果約分分母是偶數且較大(如4)，改用網格或更清晰的切法
+                        // 這裡強制切成 fD 份，確保視覺上分母正確
+                        addGridLines(b, 2, 'v'); addGridLines(b, fD/2, 'h');
+                    } else {
+                        addGridLines(b, fD, 'h'); // 預設橫切成新分母份數
+                    }
+                });
+                if (gcdVal > 1) {
+                    exp.innerHTML = `6. 約分動畫：<span class="highlight">消除多餘格線</span>。因為分子分母都能被 ${gcdVal} 整除。<br>合併後，我們發現答案其實就是 ${getFractionHTML(fN, fD)}！`;
+                    eq.innerHTML = getFractionHTML(n1, d1) + ' + ' + getFractionHTML(n2, d2) + ' = ' + getFractionHTML(resN, commonD) + ' = ' + getFractionHTML(fN, fD);
+                } else {
+                    exp.innerHTML = "6. 這已經是最簡分數囉！無法再合併格線。";
+                    eq.innerHTML = getFractionHTML(n1, d1) + ' + ' + getFractionHTML(n2, d2) + ' = ' + getFractionHTML(resN, commonD);
+                }
+                break;
+        }
+    }
+
+    function renderResultContent(box, page) {
+        box.innerHTML = '';
+        const blue = n1 * d2; const orange = n2 * d1;
+        const start = page * commonD;
+        const end = Math.min((page + 1) * commonD, blue + orange);
+        for(let i = start; i < end; i++) {
+            let localIdx = i % commonD;
+            let c = document.createElement('div');
+            c.className = 'cell';
+            c.style.width = (100/d1)+'%'; c.style.height = (100/d2)+'%';
+            c.style.left = (localIdx % d1 * 100/d1)+'%';
+            c.style.top = ( (d2 - 1 - Math.floor(localIdx / d1)) * 100/d2)+'%';
+            c.style.background = (i < blue) ? 'var(--cell-blue)' : 'var(--cell-orange)';
+            box.appendChild(c);
+        }
+    }
+
+    window.onload = initGame;
+</script>
+</body>
+</html>
